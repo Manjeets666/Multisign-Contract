@@ -1,5 +1,5 @@
 {
-  "name": "Multisig_Wallet",
+  "name": "Multisign-Contract",
   "version": "1.0.0",
   "description": "",
   "main": "truffle-config.js",
