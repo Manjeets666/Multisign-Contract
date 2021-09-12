@@ -1,4 +1,4 @@
-// Load dependencies
+// Load dependencies 
 const { expect } = require('chai');
 // Import utilities from OpenZeppelin Test Helpers
 const { BN, expectEvent, expectRevert } = require('@openzeppelin/test-helpers');
