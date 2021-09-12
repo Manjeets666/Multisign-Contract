@@ -18,5 +18,5 @@
   },
   "dependencies": {
     "chai-as-promised": "^7.1.1"
-  }
+  } 
 }
