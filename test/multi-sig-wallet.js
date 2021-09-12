@@ -1,4 +1,4 @@
-// Load dependencies 
+// Load dependencies
 const { expect } = require('chai');
 // Import utilities from OpenZeppelin Test Helpers
 const { BN, expectEvent, expectRevert } = require('@openzeppelin/test-helpers');
@@ -13,6 +13,30 @@ contract("MultiSigWallet", (accounts) =>{
 		// Deploy a new MultiSigWallet contract instance before each test case.
 		wallet= await MultiSigWallet.new(owners,Num_Confirmations_Required);
 	});
+	describe("constructor", () => {
+	    it("should deploy", async () => {
+	      const wallet = await MultiSigWallet.new(owners,Num_Confirmations_Required);
+
+	      for (let i = 0; i < owners.length; i++) {
+	        assert.equal(await wallet.owners(i), owners[i]);
+	      }
+
+	      assert.equal(await wallet.numConfirmationsRequired(),Num_Confirmations_Required);
+	    });
+
+	    it("should reject if no owners", async () => {
+	      await expectRevert.unspecified(MultiSigWallet.new([], Num_Confirmations_Required));
+	    });
+
+	    it("should reject if num_confirmations_required > no. of owners", async () => {
+	      await expectRevert.unspecified(MultiSigWallet.new(owners, owners.length + 1));
+	    });
+
+	    it("should reject if owners are not unique", async () => {
+	      await expectRevert.unspecified(MultiSigWallet.new([owners[0], owners[0]], Num_Confirmations_Required));
+	    });
+  	});
+
 	describe("fallback", async () => {
 	    it("should receive ether", async () => {
 	      const receipt= await wallet.sendTransaction({from: accounts[0],value:1});
@@ -64,10 +88,6 @@ contract("MultiSigWallet", (accounts) =>{
 	      const receipt = await wallet.confirmTx(0, {from: owners[0]});
 	      expectEvent(receipt, 'Confirm',{owner:owners[0],txIndex:"0"});
 
-	      // assert.equal(logs[0].event, "Confirm")
-	      // assert.equal(logs[0].args.owner, owners[0])
-	      // assert.equal(logs[0].args.txIndex, 0)
-
 	      const tx = await wallet.getTransaction(0);
 	      assert.equal(tx.numConfirmations, 1);
 	    });
@@ -102,18 +122,13 @@ contract("MultiSigWallet", (accounts) =>{
     	//execute tx should succeed
 		it("should execute", async () =>{
 			const receipt = await wallet.executeTx(0, {from: owners[0]});
-			//checking the event executed or not with respective logs
 			expectEvent(receipt, 'Execute', {owner:owners[0],txIndex:"0"});
-			 
-			// assert.equal(logs[0].event, "Execute");
-			// assert.equal(logs[0].args.owner, owners[0]);
-			// assert.equal(logs[0].args.txIndex, 0);
 
 			const tx= await wallet.getTransaction(0);
 			assert.equal(tx.executed, true);
 
 		});
-		//execute tx should fail if already executed 
+		//tx should fail if already executed 
 		it("should reject if already executed", async () => {
 	      	await wallet.executeTx(0, { from: owners[0] });
 	      	// try {
@@ -121,7 +136,7 @@ contract("MultiSigWallet", (accounts) =>{
 	        // 	await wallet.executeTx(0, { from: owners[0] });
 	        // 	throw new Error("tx did not fail");
 	        // }	catch (error) {
-	        //   	assert.equal(error.reason, "tx already executed"); // "error.reason" came here from MultisigWallet.sol
+	        //   	assert.equal(error.reason, "tx already executed"); // "error.reason" came here from MultiSigWallet.sol
 	        // }
 
 	        //alternate way without try & catch
@@ -134,4 +149,31 @@ contract("MultiSigWallet", (accounts) =>{
       		await expectRevert(wallet.executeTx(1, { from: owners[0]}),"tx doesn't exist");
     	});
 	});
+
+	describe("revokeConfirmation", async () => {
+	    beforeEach(async () => {
+	      const to = accounts[3];
+	      const value = 0;
+	      const data = "0x00";
+
+	      await wallet.submitTx(to, value, data);
+	      await wallet.confirmTx(0, {from: owners[0] });
+	    });
+
+	    it("should revoke confirmation", async () => {
+	      const receipt = await wallet.revokeConfirmation(0, {from: owners[0]});
+	      expectEvent(receipt,'Revoke',{owner:owners[0],txIndex:"0"});
+
+		  const tx = await wallet.getTransaction(0);	
+	      assert.equal(tx.numConfirmations, 0); //that means owners[0].isConfirmed=false 
+	    });
+
+	    it("should reject if not owner", async () => {
+	      await expectRevert(wallet.revokeConfirmation(0, {from: accounts[3]}),"not owner");
+	    });
+
+	    it("should reject if tx does not exist", async () => {
+	      await expectRevert(wallet.revokeConfirmation(1, {from: owners[0]}),"tx doesn't exist");
+	    });
+  	});
 });	
